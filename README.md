@@ -1,3 +1,13 @@
+---
+title: Email Triage Env
+emoji: 📧
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_file: app.py
+pinned: false
+---
+
 # 📧 Email Triage Environment
 
 An OpenEnv-compliant reinforcement learning environment where an AI agent
