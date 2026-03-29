@@ -1,0 +1,119 @@
+# openenv.yaml
+# This file tells the OpenEnv validator everything about our environment.
+# It must be in the root folder of the project.
+
+name: email-triage-env
+version: "1.0.0"
+description: >
+  A real-world email triage environment where an AI agent must classify
+  customer support emails by urgency and department, detect duplicates,
+  and correctly escalate time-sensitive issues.
+
+author: "Priyansha Dhaundiyal"
+tags:
+  - openenv
+  - email
+  - triage
+  - customer-support
+  - nlp
+
+# ── TASKS ─────────────────────────────────────────────────────────────────────
+
+tasks:
+  - id: easy
+    name: "Single Email Classification"
+    description: >
+      Classify a single customer support email by urgency (low/medium/high)
+      and department (billing/technical/general).
+    difficulty: easy
+    max_steps: 3
+    passing_score: 0.6
+
+  - id: medium
+    name: "Batch Email Triage"
+    description: >
+      Triage a batch of 5 emails. Classify each by urgency and department,
+      and detect any duplicate emails.
+    difficulty: medium
+    max_steps: 8
+    passing_score: 0.7
+
+  - id: hard
+    name: "Full Inbox Triage with Escalation Detection"
+    description: >
+      Triage 15 emails including hidden duplicates and time-sensitive
+      escalations buried in polite language. Missing escalations incurs
+      a score penalty.
+    difficulty: hard
+    max_steps: 20
+    passing_score: 0.8
+
+# ── ACTION SPACE ──────────────────────────────────────────────────────────────
+
+action_space:
+  type: structured
+  fields:
+    - name: email_id
+      type: string
+      description: "The id of the email being classified"
+    - name: urgency
+      type: enum
+      values: [low, medium, high]
+      description: "How urgent is this email?"
+    - name: department
+      type: enum
+      values: [billing, technical, general]
+      description: "Which department should handle this email?"
+    - name: is_duplicate
+      type: boolean
+      description: "Is this email a duplicate of one already seen?"
+    - name: notes
+      type: string
+      required: false
+      description: "Optional reasoning from the agent"
+
+# ── OBSERVATION SPACE ─────────────────────────────────────────────────────────
+
+observation_space:
+  type: structured
+  fields:
+    - name: task_id
+      type: string
+      description: "Which task is running"
+    - name: instructions
+      type: string
+      description: "Plain English instructions for the agent"
+    - name: emails
+      type: list
+      description: "List of emails to triage"
+    - name: current_score
+      type: float
+      description: "Running score so far"
+    - name: steps_taken
+      type: integer
+      description: "Number of actions taken so far"
+    - name: max_steps
+      type: integer
+      description: "Maximum steps allowed"
+    - name: done
+      type: boolean
+      description: "Whether the episode is finished"
+
+# ── REWARD ────────────────────────────────────────────────────────────────────
+
+reward:
+  range: [0.0, 1.0]
+  partial_credit: true
+  description: >
+    Urgency correct: +0.4, Department correct: +0.4, Duplicate correct: +0.2.
+    Escalation miss penalty: -0.2 per missed escalation (hard task only).
+
+# ── ENVIRONMENT ───────────────────────────────────────────────────────────────
+
+environment:
+  api:
+    reset: "POST /reset"
+    step:  "POST /step"
+    state: "GET /state"
+  runtime: python
+  python_version: "3.12"
