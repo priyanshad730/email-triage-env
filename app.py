@@ -6,6 +6,8 @@
 #   POST /step   — submit one action
 #   GET  /state  — see current state
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -140,3 +142,9 @@ def state():
         )
 
     return current_env.state()
+
+@app.get("/dashboard", response_class=None)
+async def dashboard():
+    """Serve the live dashboard HTML page."""
+    from fastapi.responses import FileResponse
+    return FileResponse("dashboard.html")
