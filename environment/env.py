@@ -13,8 +13,6 @@ from environment.tasks.task2_medium import grade_task2, TASK2_CONFIG
 from environment.tasks.task3_hard import grade_task3, TASK3_CONFIG
 
 # ── TASK REGISTRY ─────────────────────────────────────────────────────────────
-# Maps task names to their config and grader function.
-# Easy to add new tasks later — just add a line here.
 
 TASK_REGISTRY = {
     "easy":   {"config": TASK1_CONFIG, "grader": grade_task1},
@@ -36,10 +34,6 @@ class EmailTriageEnv:
     """
 
     def __init__(self, task_id: str = "easy"):
-        """
-        Set up the environment for a specific task.
-        task_id must be one of: "easy", "medium", "hard"
-        """
         if task_id not in TASK_REGISTRY:
             raise ValueError(
                 f"Unknown task '{task_id}'. "
@@ -50,26 +44,27 @@ class EmailTriageEnv:
         self.config  = TASK_REGISTRY[task_id]["config"]
         self.grader  = TASK_REGISTRY[task_id]["grader"]
 
-        # These get set properly when reset() is called
-        self.emails        = []
-        self.actions_taken = []
-        self.current_score = 0.0
-        self.steps_taken   = 0
-        self.done          = False
+        self.emails              = []
+        self.actions_taken       = []
+        self.current_score       = 0.0
+        self.steps_taken         = 0
+        self.done                = False
+        self.consecutive_correct = 0    # tracks streak of correct answers
 
     # ── RESET ─────────────────────────────────────────────────────────────────
 
     def reset(self) -> EmailObservation:
         """
         Start a fresh episode.
-        Clears all previous actions and scores.
+        Clears all previous actions, scores, and streaks.
         Returns the first observation the agent will see.
         """
-        self.emails        = get_emails_for_task(self.task_id)
-        self.actions_taken = []
-        self.current_score = 0.0
-        self.steps_taken   = 0
-        self.done          = False
+        self.emails              = get_emails_for_task(self.task_id)
+        self.actions_taken       = []
+        self.current_score       = 0.0
+        self.steps_taken         = 0
+        self.done                = False
+        self.consecutive_correct = 0
 
         return EmailObservation(
             task_id       = self.task_id,
@@ -86,13 +81,13 @@ class EmailTriageEnv:
     def step(self, action: dict) -> dict:
         """
         The agent submits one action (classification of one email).
-        We grade it, update the score, and return what happens next.
+        We grade it, apply bonuses/penalties, and return what happens next.
 
-        Returns a dict with:
-            observation : what the agent sees now
-            reward      : the score for this action
-            done        : whether the episode is finished
-            info        : extra debugging info
+        Reward breakdown:
+            base score          : from grader (urgency + dept + duplicate)
+            streak bonus        : +0.05 if 3+ correct answers in a row
+            speed bonus         : +0.05 if episode finishes under max steps
+            confidence penalty  : -0.1 if agent wrongly marks as duplicate
         """
 
         # ── If already done, don't accept more actions ─────────────────────
@@ -121,24 +116,19 @@ class EmailTriageEnv:
 
         # ── Grade the action ──────────────────────────────────────────────
         if ground_truth is None:
-            # Agent referred to an email that doesn't exist
             grade_result = {
-                "score": 0.0,
-                "reason": f"Email '{email_id}' not found.",
+                "score"    : 0.0,
+                "reason"   : f"Email '{email_id}' not found.",
                 "breakdown": {}
             }
         else:
             if self.task_id == "easy":
                 grade_result = self.grader(action, ground_truth)
             else:
-                # For medium and hard, grade all actions so far
                 grade_result = self.grader(
                     self.actions_taken,
                     self.emails[:len(self.actions_taken)]
                 )
-
-        # ── Update running score ───────────────────────────────────────────
-        self.current_score = grade_result["score"]
 
         # ── Check if episode should end ────────────────────────────────────
         all_emails_done = len(self.actions_taken) >= len(self.emails)
@@ -147,11 +137,52 @@ class EmailTriageEnv:
         if all_emails_done or out_of_steps:
             self.done = True
 
+        # ── Calculate bonuses and penalties ───────────────────────────────
+        base_score = grade_result["score"]
+
+        # 1. Streak bonus — reward 3 correct answers in a row
+        streak_bonus = 0.0
+        if base_score >= 0.8:
+            self.consecutive_correct += 1
+            if self.consecutive_correct >= 3:
+                streak_bonus = 0.05
+        else:
+            self.consecutive_correct = 0
+
+        # 2. Confidence penalty — wrong duplicate flag loses extra points
+        # Because marking something as duplicate means the team ignores it
+        confidence_penalty = 0.0
+        if ground_truth is not None:
+            correct_dup = ground_truth.get("duplicate_of") is not None
+            agent_dup   = action.get("is_duplicate", False)
+            if agent_dup and not correct_dup:
+                confidence_penalty = 0.1
+
+        # 3. Speed bonus — finishing well under the step limit
+        speed_bonus = 0.0
+        if self.done:
+            steps_remaining = self.config["max_steps"] - self.steps_taken
+            if steps_remaining > 0:
+                speed_bonus = round(
+                    min(0.05, steps_remaining / self.config["max_steps"] * 0.1),
+                    4
+                )
+
+        # ── Final score — clamped between 0.0 and 1.0 ────────────────────
+        final_score = base_score + streak_bonus + speed_bonus - confidence_penalty
+        self.current_score = round(max(0.0, min(1.0, final_score)), 4)
+
         # ── Build reward object ────────────────────────────────────────────
         reward = TriageReward(
-            value     = grade_result["score"],
-            reason    = grade_result["reason"],
-            breakdown = grade_result["breakdown"],
+            value  = self.current_score,
+            reason = grade_result["reason"],
+            breakdown = {
+                **grade_result["breakdown"],
+                "base_score"         : base_score,
+                "streak_bonus"       : streak_bonus,
+                "speed_bonus"        : speed_bonus,
+                "confidence_penalty" : confidence_penalty,
+            },
         )
 
         return {
@@ -159,34 +190,34 @@ class EmailTriageEnv:
             "reward":      reward,
             "done":        self.done,
             "info": {
-                "steps_taken":   self.steps_taken,
-                "emails_triaged": len(self.actions_taken),
-                "total_emails":  len(self.emails),
+                "steps_taken"        : self.steps_taken,
+                "emails_triaged"     : len(self.actions_taken),
+                "total_emails"       : len(self.emails),
+                "consecutive_correct": self.consecutive_correct,
+                "streak_bonus"       : streak_bonus,
+                "speed_bonus"        : speed_bonus,
+                "confidence_penalty" : confidence_penalty,
             }
         }
 
     # ── STATE ──────────────────────────────────────────────────────────────────
 
     def state(self) -> dict:
-        """
-        Returns the full current state of the environment.
-        Useful for debugging — shows everything happening inside.
-        """
         return {
-            "task_id":        self.task_id,
-            "steps_taken":    self.steps_taken,
-            "max_steps":      self.config["max_steps"],
-            "current_score":  self.current_score,
-            "emails_triaged": len(self.actions_taken),
-            "total_emails":   len(self.emails),
-            "done":           self.done,
-            "actions_taken":  self.actions_taken,
+            "task_id"            : self.task_id,
+            "steps_taken"        : self.steps_taken,
+            "max_steps"          : self.config["max_steps"],
+            "current_score"      : self.current_score,
+            "emails_triaged"     : len(self.actions_taken),
+            "total_emails"       : len(self.emails),
+            "done"               : self.done,
+            "consecutive_correct": self.consecutive_correct,
+            "actions_taken"      : self.actions_taken,
         }
 
     # ── PRIVATE HELPER ─────────────────────────────────────────────────────────
 
     def _get_observation(self) -> EmailObservation:
-        """Build the current observation object."""
         return EmailObservation(
             task_id       = self.task_id,
             instructions  = self.config["description"],
