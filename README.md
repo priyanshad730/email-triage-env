@@ -43,9 +43,8 @@ Tested with `meta-llama/Llama-3.1-8B-Instruct` via Hugging Face Inference API:
 |--------|--------|--------|
 | easy   | 1.0000 | ✅ PASS |
 | medium | 1.0000 | ✅ PASS |
-| hard   | 0.8000 | ✅ PASS |
-| **avg**| **0.9333** | ✅ |
-
+| hard   | 0.8933 | ✅ PASS |
+| **avg**| **0.9644** | ✅ |
 ---
 
 ## Action Space
