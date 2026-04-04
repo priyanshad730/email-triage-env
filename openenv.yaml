@@ -48,6 +48,31 @@ tasks:
     max_steps: 20
     passing_score: 0.8
 
+    - id: routing_easy
+    name: "Ticket Routing — Easy"
+    description: >
+      Assign 3 support tickets to the correct agent based on skill and workload.
+    difficulty: easy
+    max_steps: 5
+    passing_score: 0.6
+
+  - id: routing_medium
+    name: "Ticket Routing — Medium"
+    description: >
+      Assign 8 support tickets balancing skill match and agent workload.
+    difficulty: medium
+    max_steps: 12
+    passing_score: 0.65
+
+  - id: routing_hard
+    name: "Ticket Routing — Hard"
+    description: >
+      Assign 10 tickets including ambiguous ones. Read carefully to
+      identify the primary skill required and balance workload.
+    difficulty: hard
+    max_steps: 15
+    passing_score: 0.7
+
 # ── ACTION SPACE ──────────────────────────────────────────────────────────────
 
 action_space:

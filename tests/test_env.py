@@ -95,9 +95,31 @@ def test_state():
     print(f"current_score : {state['current_score']}")
     print(f"done          : {state['done']}")
 
+def test_routing():
+    print("\n── TASK 4: ROUTING EASY ──────────────────────────────")
+    env = EmailTriageEnv(task_id="routing_easy")
+    obs = env.reset()
+    print(f"Task      : {obs.task_id}")
+    print(f"Tickets   : {len(obs.emails)}")
+
+    # Simulate perfect agent — assigns correct agents
+    actions = [
+        {"ticket_id": "ticket_01", "assigned_agent_id": "agent_eve"},
+        {"ticket_id": "ticket_02", "assigned_agent_id": "agent_alice"},
+        {"ticket_id": "ticket_03", "assigned_agent_id": "agent_carol"},
+    ]
+
+    for action in actions:
+        result = env.step(action)
+
+    print(f"Score     : {result['reward'].value}")
+    print(f"Reason    : {result['reward'].reason}")
+    print(f"Done      : {result['done']}")
+
 if __name__ == "__main__":
     test_easy()
     test_medium()
     test_hard()
     test_state()
+    test_routing()
     print("\n✅ All tests passed!")
