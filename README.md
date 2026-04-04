@@ -27,12 +27,14 @@ This is a real task that companies actually do. Getting it wrong costs time and 
 
 ## Tasks
 
-| Task   | Emails | Difficulty | Passing Score | Description |
-|--------|--------|------------|---------------|-------------|
-| easy   | 1      | Easy       | 0.6           | Classify a single email correctly |
-| medium | 5      | Medium     | 0.7           | Triage a batch, detect duplicates |
-| hard   | 15     | Hard       | 0.8           | Full inbox with hidden escalations |
-
+| Task           | Items | Difficulty | Passing Score | Description |
+|----------------|-------|------------|---------------|-------------|
+| easy           | 1     | Easy       | 0.6           | Classify a single email |
+| medium         | 5     | Medium     | 0.7           | Triage batch, detect duplicates |
+| hard           | 15    | Hard       | 0.8           | Full inbox with escalations |
+| routing_easy   | 3     | Easy       | 0.6           | Assign 3 tickets to best agent |
+| routing_medium | 8     | Medium     | 0.65          | Balance skill and workload |
+| routing_hard   | 10    | Hard       | 0.7           | Ambiguous tickets, read carefully |
 ---
 
 ## Baseline Scores
