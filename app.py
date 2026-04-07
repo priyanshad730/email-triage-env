@@ -8,7 +8,7 @@
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 from environment.env import EmailTriageEnv
@@ -53,32 +53,38 @@ def root():
     }
 
 @app.post("/reset")
-def reset(request: ResetRequest):
+async def reset(request: Request):
     """
     Start a fresh episode.
     Returns the first observation the agent will see.
     """
     global current_env
 
+    # Try to parse body — if no body sent, use default task_id "easy"
+    try:
+        body = await request.json()
+        task_id = body.get("task_id", "easy")
+    except Exception:
+        task_id = "easy"
+
     # Validate task_id
-    if request.task_id not in ["easy", "medium", "hard"]:
+    if task_id not in ["easy", "medium", "hard", "routing_easy", "routing_medium", "routing_hard"]:
         raise HTTPException(
-            status_code = 400,
-            detail      = f"Invalid task_id '{request.task_id}'. Choose: easy, medium, hard"
+            status_code=400,
+            detail=f"Invalid task_id '{task_id}'."
         )
 
-    # Create fresh environment and reset it
-    current_env = EmailTriageEnv(task_id=request.task_id)
+    current_env = EmailTriageEnv(task_id=task_id)
     obs         = current_env.reset()
 
     return {
-        "task_id"     : obs.task_id,
-        "instructions": obs.instructions,
-        "emails"      : obs.emails,
+        "task_id"      : obs.task_id,
+        "instructions" : obs.instructions,
+        "emails"       : obs.emails,
         "current_score": obs.current_score,
-        "steps_taken" : obs.steps_taken,
-        "max_steps"   : obs.max_steps,
-        "done"        : obs.done,
+        "steps_taken"  : obs.steps_taken,
+        "max_steps"    : obs.max_steps,
+        "done"         : obs.done,
     }
 
 @app.post("/step")
