@@ -1,0 +1,17 @@
+[project]
+name = "email-triage-env"
+version = "1.0.0"
+description = "OpenEnv environment for email triage and classification"
+requires-python = ">=3.12"
+
+[project.dependencies]
+pydantic = ">=2.0"
+fastapi = ">=0.100"
+uvicorn = ">=0.20"
+openai = ">=1.0"
+pyyaml = ">=6.0"
+
+[tool.openenv]
+name = "email-triage-env"
+version = "1.0.0"
+tasks = ["easy", "medium", "hard", "routing_easy", "routing_medium", "routing_hard"]
